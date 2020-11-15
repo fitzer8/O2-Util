@@ -7,7 +7,7 @@ LIB=liboo2c_utils
 
 Debug:
 	$(OOC) --build-package $(PKG)
-	$(OOC) --build-pkg-doc $(PKG)
+	# $(OOC) --build-pkg-doc $(PKG)
 	$(OOC) $(OFLAGS) -r . --install-package $(PKG)
 	#cp -r ./src ~/Dropbox/SRC/o2/Libs/Utils
 
