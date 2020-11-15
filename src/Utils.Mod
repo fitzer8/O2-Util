@@ -3,7 +3,7 @@ MODULE Utils;
 # MODULE:	Utils.
 # FUNCTION:	Contains various routines.
 # AUTHOR:	Fitz
-# VERS:		1.0
+# VERS:		1.1
 #================================================================
 # HISTORY
 #================================================================
@@ -59,19 +59,11 @@ MODULE Utils;
 # 20140514 # Fitz       # Added DumpByte and tBit to replace TBit.
 # 20140515 # Fitz       # Added IMPORT of Bits. Updated
 #						# dumpByte to call tBit from Bits library.
+# 20160916 # Fitz       # Cleanup to compile.
+# 20160917 # Fitz       # Added ShowBits.
+# 20160918 # Fitz       # Added FileNotFound and FileNotOpen.
+#                       # Major clean up.
 ###############################################################*)
-IMPORT
-	BinaryRider,
-	TextRider,
-	Files,
-	Out,
-	CharClass,
-	Strings,
-
-	Bits,
-	Debug,
-	This
-;
 
 (*###############################################################
 # Procedures
@@ -103,26 +95,43 @@ PROCEDURE Word2HexStr*( wd: LONGINT; VAR str: ARRAY OF CHAR );
 PROCEDURE Sprintf*( str: ARRAY OF CHAR; cnt: INTEGER );
 PROCEDURE FileExists*( Name: ARRAY OF CHAR ): BOOLEAN;
 PROCEDURE SkipWhite*( VAR str: ARRAY OF CHAR );
-PROCEDURE GetLine*( VAR file: TextRider.Reader; VAR str: ARRAY OF CHAR; VAR cnt: LONGINT ) : BOOLEAN;
+PROCEDURE GetLine*( VAR File: TextRider.Reader; VAR str: ARRAY OF CHAR; VAR cnt: LONGINT ) : BOOLEAN;
 PROCEDURE NewGetChar*( str : ARRAY OF CHAR; VAR idx: LONGINT ) : CHAR;
 PROCEDURE IsAlphaNum*( ch : CHAR ) : BOOLEAN;
-PROCEDURE NewGetByte*( VAR file: BinaryRider.Reader; VAR CH: CHAR; VAR CNT: LONGINT ): BOOLEAN;
+PROCEDURE NewGetByte*( VAR File: BinaryRider.Reader; VAR CH: CHAR; VAR CNT: LONGINT ): BOOLEAN;
 PROCEDURE ExtractWord*( buff: ARRAY OF CHAR; VAR buffIdx: INTEGER; VAR word: ARRAY OF CHAR );
 PROCEDURE TrimWhite*( VAR str: ARRAY OF CHAR );
+PROCEDURE OpenBinaryReader*( VAR name: ARRAY OF CHAR; VAR f: Files.File; VAR res: Files.Result );
+PROCEDURE ShowBits*( Num: LONGINT );
+PROCEDURE FileNotOpen*( file: ARRAY OF CHAR );
+PROCEDURE FileNotFound*( file: ARRAY OF CHAR );
 PROCEDURE XXX
 ###############################################################*)
+IMPORT
+	BinaryRider,
+	TextRider,
+	Files,
+	Out,
+	CharClass,
+	Strings,
+
+	Debug
+;
+
 (*###############################################################
 # Globals
 ###############################################################*)
 CONST
+	File = "Libs/Utils/Utils.Mod";
+
     Bin =    2;
     Oct =    8;
 	Dec =	 10;
     Hex =    16;
 
+
 VAR
     BASE:    INTEGER;
-
 
 (*###############################################################
 # NAME:		Range
@@ -159,6 +168,9 @@ END Range;
 # CHANGES:    Nothing.
 ###############################################################*)
 PROCEDURE LOWER*( VAR str1: ARRAY OF CHAR );
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:    BOOLEAN;
     len:    LONGINT;
@@ -169,14 +181,13 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
-    Debug.Inc;
 
     len := Strings.Length( str1 );
     IF DBG THEN
         Debug.Debug;
-        Debug.LInt( "len", len, 2 );
+        Debug.LLInt( "len", len, 2 );
         Debug.Nl;
     END;
 
@@ -185,7 +196,7 @@ BEGIN
         CH := str1[ idx ];
         IF DBG THEN
             Debug.Debug;
-            Debug.QChar( "CH", CH );
+            Debug.LQChar( "CH", CH );
             Debug.Nl;
         END;
         IF CharClass.IsUpper( CH ) THEN
@@ -195,13 +206,12 @@ BEGIN
     END;
     IF DBG THEN
         Debug.Debug;
-        Debug.QString( "str1", str1 );
+        Debug.LQString( "str1", str1 );
         Debug.Nl;
     END;
 
-    Debug.Dec;
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
 END LOWER;
 
@@ -214,6 +224,9 @@ END LOWER;
 # CHANGES:    Nothing.
 ###############################################################*)
 PROCEDURE UPPER*( VAR str1: ARRAY OF CHAR );
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:    BOOLEAN;
     len:    LONGINT;
@@ -224,14 +237,13 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
-    Debug.Inc;
 
     len := Strings.Length( str1 );
     IF DBG THEN
         Debug.Debug;
-        Debug.LInt( "len", len, 2 );
+        Debug.LLInt( "len", len, 2 );
         Debug.Nl;
     END;
 
@@ -240,7 +252,7 @@ BEGIN
         CH := str1[ idx ];
         IF DBG THEN
             Debug.Debug;
-            Debug.QChar( "CH", CH );
+            Debug.LQChar( "CH", CH );
             Debug.Nl;
         END;
         IF CharClass.IsLower( CH ) THEN
@@ -250,13 +262,12 @@ BEGIN
     END;
     IF DBG THEN
         Debug.Debug;
-        Debug.QString( "str1", str1 );
+        Debug.LQString( "str1", str1 );
         Debug.Nl;
     END;
 
-    Debug.Dec;
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
 END UPPER;
 
@@ -270,6 +281,9 @@ END UPPER;
 # CHANGES:	Nothing.
 ###############################################################*)
 PROCEDURE AsciiChar2Hex*( ch: CHAR ): INTEGER;
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:	BOOLEAN;
     n:		INTEGER;
@@ -278,9 +292,8 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
-    Debug.Inc;
 
     n := ORD( ch ) - 30H;
     IF n > 9H THEN
@@ -289,13 +302,12 @@ BEGIN
 
     IF DBG THEN
         Debug.Debug;
-        Debug.LInt( "n", n, 2 );
+        Debug.LLInt( "n", n, 2 );
         Debug.Nl;
     END;
 
-    Debug.Dec;
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
     RETURN( n );
 END AsciiChar2Hex;
@@ -308,6 +320,9 @@ END AsciiChar2Hex;
 # CHANGES:    Nothing.
 ###############################################################*)
 PROCEDURE ConvString*( STR: ARRAY OF CHAR ): INTEGER;
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:    BOOLEAN;
     NUM:    INTEGER;
@@ -320,13 +335,12 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
-    Debug.Inc;
 
     IF DBG THEN
         Debug.Debug;
-        Debug.QString( "STR", STR );
+        Debug.LQString( "STR", STR );
         Debug.Nl;
     END;
 
@@ -338,7 +352,7 @@ BEGIN
         CH := STR[ idx ];
         IF DBG THEN
             Debug.Debug;
-            Debug.QChar( "CH", CH );
+            Debug.LQChar( "CH", CH );
             Debug.Nl;
         END;
         IF BASE = Hex THEN
@@ -348,14 +362,14 @@ BEGIN
         END;
         IF DBG THEN
             Debug.Debug;
-            Debug.Hex( "val", val, 2 );
+            Debug.LHex( "val", val, 2 );
             Debug.Nl;
         END;
         NUM := NUM * BASE;
         NUM := NUM + val;
         IF DBG THEN
             Debug.Debug;
-            Debug.Hex( "NUM", NUM, 4 );
+            Debug.LHex( "NUM", NUM, 4 );
             Debug.Nl;
         END;
         INC( idx );
@@ -368,20 +382,19 @@ BEGIN
     END;
     IF DBG THEN
         Debug.Debug;
-        Debug.Hex( "val", val, 2 );
+        Debug.LHex( "val", val, 2 );
         Debug.Nl;
     END;
     NUM := NUM * BASE;
     NUM := NUM + val;
     IF DBG THEN
         Debug.Debug;
-        Debug.Hex( "NUM", NUM, 4 );
+        Debug.LHex( "NUM", NUM, 4 );
         Debug.Nl;
     END;
 
-    Debug.Dec;
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
     RETURN( NUM );
 END ConvString;
@@ -394,6 +407,9 @@ END ConvString;
 # CHANGES:	Nothing.
 ###############################################################*)
 PROCEDURE AsciiStr2Number*( STR: ARRAY OF CHAR ): INTEGER;
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:    BOOLEAN;
     NUM:    INTEGER;
@@ -403,20 +419,19 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
-    Debug.Inc;
 
     (* Capitalize all chars in the string *)
     IF DBG THEN
 		Debug.Debug;
-        Debug.QString( "STR before Capilatize is run", STR );
+        Debug.LQString( "STR before Capilatize is run", STR );
         Debug.Nl;
     END;
     Strings.Capitalize( STR );
     IF DBG THEN
         Debug.Debug;
-        Debug.QString( "STR after Capilatize is run", STR );
+        Debug.LQString( "STR after Capilatize is run", STR );
         Debug.Nl;
     END;
 
@@ -428,7 +443,7 @@ BEGIN
         Strings.Delete( STR, len, 1 );
         IF DBG THEN
             Debug.Debug;
-            Debug.QString( "STR after removal of trailing B", STR );
+            Debug.LQString( "STR after removal of trailing B", STR );
             Debug.Nl;
         END;
         BASE := Bin;
@@ -436,7 +451,7 @@ BEGIN
         Strings.Delete( STR, len, 1 );
         IF DBG THEN
             Debug.Debug;
-            Debug.QString( "STR after removal of trailing O", STR );
+            Debug.LQString( "STR after removal of trailing O", STR );
             Debug.Nl;
         END;
         BASE := Oct;
@@ -444,7 +459,7 @@ BEGIN
         Strings.Delete( STR, len, 1 );
         IF DBG THEN
             Debug.Debug;
-            Debug.QString( "STR after removal of trailing Q", STR );
+            Debug.LQString( "STR after removal of trailing Q", STR );
             Debug.Nl;
         END;
         BASE := Oct;
@@ -452,7 +467,7 @@ BEGIN
         Strings.Delete( STR, len, 1 );
         IF DBG THEN
             Debug.Debug;
-            Debug.QString( "STR after removal of trailing H", STR );
+            Debug.LQString( "STR after removal of trailing H", STR );
             Debug.Nl;
         END;
         BASE := Hex;
@@ -460,16 +475,15 @@ BEGIN
         Strings.Delete( STR, 0, 2 );
         IF DBG THEN
             Debug.Debug;
-            Debug.QString( "STR after delete of 0x was done", STR );
+            Debug.LQString( "STR after delete of 0x was done", STR );
             Debug.Nl;
         END;
         BASE := Hex;
     END;
     NUM := ConvString( STR );
 
-    Debug.Dec;
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
     RETURN( NUM );
 END AsciiStr2Number;
@@ -501,38 +515,44 @@ BEGIN
 END LoByte;
 
 (*###############################################################
-# NAME:        GetByte
-# FUNC:        Reads a byte from R into CH, and increments the
-#            counter CNT.
-# RETURNS:    CH (CHAR).
-# CHANGES:    R and CNT.
+# NAME:		GetByte
+# FUNC:		Reads a byte from R into CH, and increments the
+#			counter CNT.
+# RETURNS:	CH (CHAR).
+# CHANGES:	R and CNT.
 ###############################################################*)
-PROCEDURE GetByte*( VAR R: BinaryRider.Reader; VAR CNT: LONGINT ): CHAR;
+(* PROCEDURE GetByte*( VAR R: BinaryRider.Reader; VAR CNT: LONGINT ): CHAR; *)
+PROCEDURE GetByte*( VAR R: BinaryRider.Reader ): CHAR;
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:        BOOLEAN;
+
     CH:            CHAR;
 
 BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
 	END;
-    Debug.Inc;
 
     R.ReadChar( CH );
-    INC( CNT );
+    (* INC( CNT ); *)
     IF DBG THEN
         Debug.Debug;
-        Debug.Hex( "CH", ORD( CH ), 2 );
+        Debug.LHex( "CH", ORD( CH ), 2 );
+(*
         Debug.Spaces( 3 );
-        Debug.Hex( "CNT", CNT, 6 );
+		Debug.Label( "CNT" );
+        Debug.Hex( CNT, 6 );
         Debug.Nl;
+*)
     END;
 
-    Debug.Dec;
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
     RETURN( CH );
 END GetByte;
@@ -544,6 +564,9 @@ END GetByte;
 # CHANGES:    Nothing.
 ###############################################################*)
 PROCEDURE Int2HexChar*( N: LONGINT ): CHAR;
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:        BOOLEAN;
     CH:            CHAR;
@@ -552,9 +575,8 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
-    Debug.Inc;
 
     IF N < 10 THEN
         CH := CHR( N + 30H );
@@ -563,16 +585,15 @@ BEGIN
     END;
     IF DBG THEN
         Debug.Debug;
-        Debug.Hex( "N", N, 2 );
+        Debug.LHex( "N", N, 2 );
         Debug.Nl;
         Debug.Debug;
-        Debug.QChar( "CH", CH );
+        Debug.LQChar( "CH", CH );
         Debug.Nl;
     END;
 
-    Debug.Dec;
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
     RETURN( CH );
 END Int2HexChar;
@@ -587,6 +608,9 @@ END Int2HexChar;
 ###############################################################*)
 (*
 PROCEDURE Int2HexStr*( N: LONGINT; CNT: LONGINT; VAR S: ARRAY OF CHAR );
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:        BOOLEAN;
     mod:        LONGINT;
@@ -596,9 +620,8 @@ BEGIN
     DBG := FALSE;
     DBG := TRUE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
-    INC( IL );
 
         IF DBG THEN
             Debug.Debug( IL );
@@ -638,9 +661,8 @@ BEGIN
         DEC( CNT );
     END;
 
-    DEC( IL );
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
 END Int2HexStr;
 *)
@@ -654,6 +676,9 @@ END Int2HexStr;
 # CHANGES:    R and CNT.
 ###############################################################*)
 PROCEDURE GetChar*( VAR R: TextRider.Reader; VAR CNT: LONGINT ): CHAR;
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:        BOOLEAN;
     CH:            CHAR;
@@ -662,23 +687,21 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
-    Debug.Inc;
 
     R.ReadChar( CH );
     INC( CNT );
     IF DBG THEN
         Debug.Debug;
-        Debug.Hex( "CH", ORD( CH ), 2 );
+        Debug.LHex( "CH", ORD( CH ), 2 );
         Debug.Spaces( 3 );
-        Debug.Hex( "CNT", CNT, 6 );
+        Debug.LHex( "CNT", CNT, 6 );
         Debug.Nl;
     END;
 
-    Debug.Dec;
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
     RETURN( CH );
 END GetChar;
@@ -691,6 +714,9 @@ END GetChar;
 # CHANGES:    N/A
 ###############################################################*)
 PROCEDURE Is_Printable*( CH: LONGINT ) : CHAR;
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:        BOOLEAN;
 
@@ -700,21 +726,23 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
 	END;
-    Debug.Inc;
 
-    ch := CHR( CH );
+    IF DBG THEN
+		Debug.LHex( "CH", CH, 2 );
+	END;
+
     IF CH < 20H THEN
         ch := ".";
-    END;
-    IF CH > 7EH THEN
+    ELSIF CH > 7EH THEN
         ch := ".";
+	ELSE
+   		 ch := CHR( CH );
     END;
 
-    Debug.Dec;
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
     RETURN( ch );
 END Is_Printable;
@@ -727,6 +755,9 @@ END Is_Printable;
 # CHANGES:    N/A
 ###############################################################*)
 PROCEDURE OrdinalOf*( CH: CHAR ) : LONGINT;
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:        BOOLEAN;
 
@@ -734,13 +765,11 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
-    Debug.Inc;
 
-    Debug.Dec;
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
     RETURN( ORD( CH ));
 END OrdinalOf;
@@ -753,6 +782,9 @@ END OrdinalOf;
 # CHANGES:    N/A
 ###############################################################*)
 PROCEDURE Even*( Num: LONGINT ) : BOOLEAN;
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:        BOOLEAN;
 
@@ -760,13 +792,11 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
-    Debug.Inc;
 
-    Debug.Dec;
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
     IF Num = 0 THEN
         RETURN( TRUE );
@@ -790,6 +820,9 @@ END Even;
 # NOTE:       Uses bit numbers: 0,1,2,3,4,5,6,7...
 ###############################################################*)
 PROCEDURE tBit*( Bit: INTEGER; Num: LONGINT ): INTEGER;
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:    BOOLEAN;
 
@@ -801,16 +834,15 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
-    Debug.Inc;
 
     IF DBG THEN
         Debug.Debug;
         Debug.Parms;
-        Debug.Hex( "Num", Num, 2 );
+		Debug.LHex( "Num", Num, 2 );
         Debug.Spaces( 4 );
-        Debug.Hex( "Bit Number", Bit, 2 );
+		Debug.LHex( "Bit Number", Bit, 2 );
         Debug.Nl;
     END;
 
@@ -835,10 +867,10 @@ BEGIN
     
     	IF DBG THEN
         	Debug.Debug;
-        	Debug.Hex( "num", num, 2 );
+        	Debug.LHex( "num", num, 2 );
         	Debug.Nl;
         	Debug.Debug;
-        	Debug.Hex( "Num", Num, 2 );
+        	Debug.LHex( "Num", Num, 2 );
         	Debug.Nl;
     	END;
     
@@ -860,9 +892,8 @@ BEGIN
     	END;
 	END; (* IF( Val = 0 ) THEN *)
 
-    Debug.Dec;
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
     RETURN( Val );
 END tBit;
@@ -872,6 +903,9 @@ END tBit;
 # Uses bit numbers: 0,1,2,3,4,5,6,7...
 ###############################################################*)
 PROCEDURE TBit*( Bit: INTEGER; Num: LONGINT ): BOOLEAN;
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:    BOOLEAN;
 
@@ -883,16 +917,15 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
-    Debug.Inc;
 
     IF DBG THEN
         Debug.Debug;
         Debug.Parms;
-        Debug.Hex( "Num", Num, 2 );
+        Debug.LHex( "Num", Num, 2 );
         Debug.Spaces( 4 );
-        Debug.Hex( "Bit", Bit, 2 );
+        Debug.LHex( "Bit", Bit, 2 );
         Debug.Nl;
     END;
 
@@ -906,10 +939,10 @@ BEGIN
     
     IF DBG THEN
         Debug.Debug;
-        Debug.Hex( "num", num, 2 );
+        Debug.LHex( "num", num, 2 );
         Debug.Nl;
         Debug.Debug;
-        Debug.Hex( "Num", Num, 2 );
+        Debug.LHex( "Num", Num, 2 );
         Debug.Nl;
     END;
     
@@ -930,9 +963,8 @@ BEGIN
         END;
     END;
 
-    Debug.Dec;
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
     RETURN( Val );
 END TBit;
@@ -941,8 +973,12 @@ END TBit;
 (*###############################################################
 # Set bit Bit of Num, return FALSE if not set, else TRUE.
 # Uses bit numbers: 0 .. 7...
-###############################################################*)
 PROCEDURE SBit*( Bit: INTEGER; VAR Num: LONGINT ): BOOLEAN;
+###############################################################*)
+PROCEDURE SBit*( Bit: INTEGER; VAR Num: LONGINT );
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:    BOOLEAN;
 
@@ -954,17 +990,16 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
-    Debug.Inc;
 
     IF DBG THEN
         Debug.Debug;
         Debug.Parms;
-        Debug.Label( "Num" );
+		Debug.Label( "Num" );
         Debug.HexStr( Num, 2 );
         Debug.Spaces( 4 );
-        Debug.Hex( "Bit", Bit, 2 );
+        Debug.LHex( "Bit", Bit, 2 );
         Debug.Nl;
     END;
 
@@ -980,11 +1015,11 @@ BEGIN
     END;
     IF DBG THEN
         Debug.Debug;
-        Debug.Label( "Num" );
+		Debug.Label( "Num" );
         Debug.HexStr( Num, 2 );
         Debug.Nl;
         Debug.Debug;
-        Debug.Label( "temp" );
+		Debug.Label( "temp" );
         Debug.HexStr( temp, 2 );
         Debug.Nl;
     END;
@@ -1002,19 +1037,22 @@ BEGIN
         END;
     END;
 
-    Debug.Dec;
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
-    RETURN( Val );
+    (* RETURN( Val ); *)
 END SBit;
 
 
 (*###############################################################
 # Reset bit Bit of Num, return FALSE if not set, else TRUE.
 # Uses bit numbers: 0 .. 7...
-###############################################################*)
 PROCEDURE RBit*( Bit: INTEGER; VAR Num: LONGINT ): BOOLEAN;
+###############################################################*)
+PROCEDURE RBit*( Bit: INTEGER; VAR Num: LONGINT );
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:    BOOLEAN;
 
@@ -1026,16 +1064,16 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
 
     IF DBG THEN
         Debug.Debug;
         Debug.Parms;
-        Debug.Label( "Num" );
+		Debug.Label( "Num" );
         Debug.HexStr( Num, 2 );
         Debug.Spaces( 4 );
-        Debug.Hex( "Bit", Bit, 2 );
+        Debug.LHex( "Bit", Bit, 2 );
         Debug.Nl;
     END;
 
@@ -1051,11 +1089,11 @@ BEGIN
     END;
     IF DBG THEN
         Debug.Debug;
-        Debug.Label( "Num" );
+		Debug.Label( "Num" );
         Debug.HexStr( Num, 2 );
         Debug.Nl;
         Debug.Debug;
-        Debug.Label( "temp" );
+		Debug.Label( "temp" );
         Debug.HexStr( temp, 2 );
         Debug.Nl;
     END;
@@ -1074,9 +1112,9 @@ BEGIN
     END;
 
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
-    RETURN( Val );
+    (* RETURN( Val ); *)
 END RBit;
 
 
@@ -1089,6 +1127,9 @@ END RBit;
 # CHANGES:    N/A - Rewrite.
 ###############################################################*)
 PROCEDURE DumpByte*( Num: LONGINT );
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:    BOOLEAN;
 
@@ -1100,19 +1141,19 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
-    Debug.Inc;
 
     IF DBG THEN
         Debug.Debug;
         Debug.Parms;
-        Debug.Hex( "Num", Num, 2 );
+        Debug.LHex( "Num", Num, 2 );
         Debug.Nl;
     END;
 
 	FOR idx := 7 TO 0 BY -1 DO
-		IF( Bits.tBit( idx, Num ) = 0 ) THEN
+		(* IF( Bits.tBit( idx, Num ) = 0 ) THEN *)
+		IF( TBit( idx, Num )) THEN
 			Out.Char( "0" );
 		ELSE
 			Out.Char( "1" );
@@ -1120,9 +1161,8 @@ BEGIN
 	END;
 	Out.Ln;
 
-    Debug.Dec;
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
 END DumpByte;
 
@@ -1130,6 +1170,9 @@ END DumpByte;
 # Display Cnt spaces.
 ###############################################################*)
 PROCEDURE Spaces*( Cnt: INTEGER );
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:    BOOLEAN;
 
@@ -1139,9 +1182,8 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
-    Debug.Inc;
 
     Idx := 0;
     WHILE Idx < Cnt DO
@@ -1149,9 +1191,8 @@ BEGIN
         INC( Idx );
     END;
 
-    Debug.Dec;
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
 END Spaces;
 
@@ -1171,6 +1212,9 @@ END Spaces;
 # 20100927 # Fitz       # Moved to here, add header and cleanup.
 ###############################################################*)
 PROCEDURE Split*( val: LONGINT; VAR hi, lo: LONGINT );
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:        BOOLEAN;
 
@@ -1178,20 +1222,20 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
     
     lo := val MOD 100H;
     hi := val DIV 100H;
     IF DBG THEN
-        Debug.Hex( "hi", hi, 3 );
+        Debug.LHex( "hi", hi, 3 );
         Debug.Spaces( 2 );
-        Debug.Hex( "lo", lo, 3 );
+        Debug.LHex( "lo", lo, 3 );
         Debug.Nl;
     END;
     
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
 END Split;
 
@@ -1211,6 +1255,9 @@ END Split;
 # 20100927 # Fitz       # Moved to here, add header and cleanup.
 ###############################################################*)
 PROCEDURE Unsplit*( VAR val: LONGINT; hi, lo: LONGINT );
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:        BOOLEAN;
 
@@ -1218,17 +1265,17 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
     
 		val := hi * 100H + lo;
     IF DBG THEN
-        Debug.Hex( "val", val, 4 );
+        Debug.LHex( "val", val, 4 );
         Debug.Nl;
     END;
     
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
 END Unsplit;
 
@@ -1239,6 +1286,9 @@ END Unsplit;
 # CHANGES:	str
 ###############################################################*)
 PROCEDURE Byte2HexStr*( ch: LONGINT; VAR str: ARRAY OF CHAR );
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:        BOOLEAN;
     hi, lo:        LONGINT;
@@ -1249,9 +1299,8 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
-    Debug.Inc;
 
     Strings.Assign( "0123456789ABCDEF", HexNibs );
 
@@ -1265,25 +1314,24 @@ BEGIN
     str[ 2 ] := 0X;
     IF DBG THEN
         Debug.Debug;
-        Debug.QString( "HexNibs", HexNibs );
+        Debug.LQString( "HexNibs", HexNibs );
         Debug.Nl;
         Debug.Debug;
-        Debug.Hex( "ch", ch, 2 );
+        Debug.LHex( "ch", ch, 2 );
         Debug.Nl;
         Debug.Debug;
-        Debug.Hex( "hi", hi, 2 );
+        Debug.LHex( "hi", hi, 2 );
         Debug.Nl;
         Debug.Debug;
-        Debug.Hex( "lo", lo, 2 );
+        Debug.LHex( "lo", lo, 2 );
         Debug.Nl;
         Debug.Debug;
-        Debug.QString( "str", str );
+        Debug.LQString( "str", str );
         Debug.Nl;
     END;
 
-    Debug.Dec;
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
 END Byte2HexStr;
 
@@ -1294,6 +1342,9 @@ END Byte2HexStr;
 # CHANGES:    str
 ###############################################################*)
 PROCEDURE Word2HexStr*( wd: LONGINT; VAR str: ARRAY OF CHAR );
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:        BOOLEAN;
 	bHi, bLo:        LONGINT;
@@ -1306,9 +1357,8 @@ BEGIN
     DBG := FALSE;
 	
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
-    Debug.Inc;
 
     Strings.Assign( "0123456789ABCDEF", HexNibs );
 	Split( wd, bHi, bLo );
@@ -1333,25 +1383,24 @@ BEGIN
     str[ 4 ] := 0X;
     IF DBG THEN
         Debug.Debug;
-        Debug.QString( "HexNibs", HexNibs );
+        Debug.LQString( "HexNibs", HexNibs );
         Debug.Nl;
         Debug.Debug;
-        Debug.Hex( "wd", wd, 4 );
+        Debug.LHex( "wd", wd, 4 );
         Debug.Nl;
         Debug.Debug;
-        Debug.Hex( "hi", hi, 2 );
+        Debug.LHex( "hi", hi, 2 );
         Debug.Nl;
         Debug.Debug;
-        Debug.Hex( "lo", lo, 2 );
+        Debug.LHex( "lo", lo, 2 );
         Debug.Nl;
         Debug.Debug;
-        Debug.QString( "str", str );
+        Debug.LQString( "str", str );
         Debug.Nl;
     END;
 
-    Debug.Dec;
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
 END Word2HexStr;
 
@@ -1360,6 +1409,9 @@ END Word2HexStr;
 # Print str left justified in a field cnt long.
 ###############################################################*)
 PROCEDURE Sprintf*( str: ARRAY OF CHAR; cnt: INTEGER );
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:        BOOLEAN;
 
@@ -1370,7 +1422,7 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
     
     diff := 0;
@@ -1382,11 +1434,11 @@ BEGIN
         diff := cnt - len;
     END;
     IF DBG THEN
-        Debug.Int( "cnt", cnt, 3 );
+        Debug.LInt( "cnt", cnt, 3 );
         Debug.Spaces( 2 );
-        Debug.Int( "len", len, 3 );
+        Debug.LInt( "len", len, 3 );
         Debug.Spaces( 2 );
-        Debug.Int( "diff", diff, 3 );
+        Debug.LInt( "diff", diff, 3 );
         Debug.Nl;
         Debug.Char( "'" );
     END;
@@ -1402,7 +1454,7 @@ BEGIN
     END;
     
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
 END Sprintf;
 
@@ -1411,6 +1463,9 @@ END Sprintf;
 # FALSE.
 ###############################################################*)
 PROCEDURE FileExists*( Name: ARRAY OF CHAR ): BOOLEAN;
+CONST
+	Proc = "LOWER";
+
 VAR
     found :		BOOLEAN;
 
@@ -1420,13 +1475,13 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
     END;
     
     IF Files.Exists( Name ) THEN
         IF DBG THEN
             Debug.Debug;
-            Debug.String( "Found file: " );
+            Debug.String( "Found File: " );
             Debug.String( Name );
             Debug.Nl;
         END;
@@ -1443,7 +1498,7 @@ BEGIN
     END;
     
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
     RETURN found;
 END FileExists;
@@ -1455,6 +1510,9 @@ END FileExists;
 # CHANGES:	str
 ###############################################################*)
 PROCEDURE SkipWhite*( VAR str: ARRAY OF CHAR );
+CONST
+	Proc = "LOWER";
+
 VAR
 	DBG		: BOOLEAN;
 
@@ -1464,7 +1522,7 @@ BEGIN
 	DBG := TRUE;
 	DBG := FALSE;
 	IF DBG THEN
-		Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
 	END;
 
 	idx := 0;
@@ -1474,16 +1532,16 @@ BEGIN
 	Strings.Delete( str, 0, idx );
 
 	IF DBG THEN
-		Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
 	END;
 END SkipWhite;
 
 (*###############################################################
 # Title:	GetLine
-# Func:		Get a line from input file.
+# Func:		Get a line from input File.
 # Author:	Fitz
 # Ver:		0.0
-# Chg:		file, str and cnt.
+# Chg:		File, str and cnt.
 # Rtns:		TRUE if it got a line else FALSE.
 #================================================================
 # HISTORY
@@ -1492,7 +1550,10 @@ END SkipWhite;
 #================================================================
 # 20100310 # Fitz       # Original.
 ###############################################################*)
-PROCEDURE GetLine*( VAR file: TextRider.Reader; VAR str: ARRAY OF CHAR; VAR cnt: LONGINT ) : BOOLEAN;
+PROCEDURE GetLine*( VAR inp: TextRider.Reader; VAR str: ARRAY OF CHAR; VAR cnt: LONGINT ) : BOOLEAN;
+CONST
+	Proc = "LOWER";
+
 VAR
 	DBG:		BOOLEAN;
 
@@ -1503,27 +1564,27 @@ BEGIN
 	DBG := FALSE;
 	
 	IF DBG THEN
-		Debug.Entry( This.File(), This.Func() );
+Debug.Entry( File, Proc );
 	END;
 
 	Done := TRUE;
-	file.ReadLine( str );
+	inp.ReadLine( str );
 	IF DBG THEN
 		Debug.Debug;
-		Debug.LInt( "cnt", cnt, 4 );
+		Debug.LLInt( "cnt", cnt, 4 );
 		Debug.Spaces( 4 );
-		Debug.QString( "str", str );
+		Debug.LQString( "str", str );
 		Debug.Nl;
 	END;
 
-	IF file.res # Files.done THEN
+	IF inp.res # Files.done THEN
 		Done := FALSE;
 	ELSE
 		INC( cnt );
 	END;
 
 	IF DBG THEN
-		Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
 	END;
 	RETURN Done;
 END GetLine;
@@ -1543,6 +1604,9 @@ END GetLine;
 # 20100206 # Fitz       # Original.
 ###############################################################*)
 PROCEDURE NewGetChar*( str : ARRAY OF CHAR; VAR idx: LONGINT ) : CHAR;
+CONST
+	Proc = "LOWER";
+
 VAR
 	DBG					: BOOLEAN;
 
@@ -1553,7 +1617,7 @@ BEGIN
 	DBG := TRUE;
 	DBG := FALSE;
 	IF DBG THEN
-		Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
 	END;
 
 	ch := str[ idx ];
@@ -1561,15 +1625,15 @@ BEGIN
 
 	IF DBG THEN
 		Debug.Debug;
-		Debug.QString( "str", str );
+		Debug.LQString( "str", str );
 		Debug.Spaces( 4 );
-		Debug.QChar( "ch", ch );
+		Debug.LQChar( "ch", ch );
 		Debug.Spaces( 4 );
-		Debug.LInt( "idx", idx, 4 );
+		Debug.LLInt( "idx", idx, 4 );
 		Debug.Nl;
 	END;
 	IF DBG THEN
-		Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
 	END;
 	RETURN ch;
 END NewGetChar;
@@ -1591,6 +1655,9 @@ END NewGetChar;
 # 20100311 # Fitz       # Original.
 ###############################################################*)
 PROCEDURE IsAlphaNum*( ch : CHAR ) : BOOLEAN;
+CONST
+	Proc = "LOWER";
+
 VAR
 	res:	BOOLEAN;
 
@@ -1600,12 +1667,12 @@ BEGIN
 	DBG := TRUE;
 	DBG := FALSE;
 	IF DBG THEN
-		Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
 	END;
 
 	IF DBG THEN
 		Debug.Debug;
-		Debug.QChar( "ch", ch );
+		Debug.LQChar( "ch", ch );
 		Debug.Nl;
 	END;
 
@@ -1615,20 +1682,23 @@ BEGIN
 	END;
 
 	IF DBG THEN
-		Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
 	END;
 	RETURN res;
 END IsAlphaNum;
 
 (*###############################################################
 # NAME:		NewGetByte
-# FUNC:		Reads a byte from file into ch, and increments the
+# FUNC:		Reads a byte from File into ch, and increments the
 #			counter cnt.
 # USAGE:	WHILE( Buffer.NewGetByte( Glbl.rCOM, ch, cnt )) DO
 # RETURNS:	eof - End Of File.
-# CHANGES:	file, ch and cnt.
+# CHANGES:	File, ch and cnt.
 ###############################################################*)
-PROCEDURE NewGetByte*( VAR file: BinaryRider.Reader; VAR CH: CHAR; VAR CNT: LONGINT ): BOOLEAN;
+PROCEDURE NewGetByte*( VAR inp: BinaryRider.Reader; VAR CH: CHAR; VAR CNT: LONGINT ): BOOLEAN;
+CONST
+	Proc = "LOWER";
+
 VAR
     DBG:	BOOLEAN;
 
@@ -1638,27 +1708,27 @@ BEGIN
     DBG := TRUE;
     DBG := FALSE;
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
 	END;
 
 	eof := TRUE;
-    file.ReadChar( CH );
+    inp.ReadChar( CH );
     IF DBG THEN
         Debug.Debug;
-        Debug.Hex( "CH", ORD( CH ), 2 );
+        Debug.LHex( "CH", ORD( CH ), 2 );
         Debug.Spaces( 2 );
-        Debug.Hex( "CNT", CNT, 6 );
+        Debug.LHex( "CNT", CNT, 6 );
         Debug.Nl;
     END;
 
-	IF file.res # Files.done THEN
+	IF inp.res # Files.done THEN
 		eof := FALSE;
 	ELSE
 		INC( CNT );
 	END;
 	
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
     RETURN( eof );
 	
@@ -1666,13 +1736,16 @@ END NewGetByte;
 
 (*###############################################################
 # NAME:		ExtractWord
-# FUNC:		Reads a byte from file into ch, and increments the
+# FUNC:		Reads a byte from File into ch, and increments the
 #			counter cnt.
 # USAGE:	WHILE( Buffer.NewGetByte( Glbl.rCOM, ch, cnt )) DO
 # RETURNS:	eof - End Of File.
-# CHANGES:	file, ch and cnt.
+# CHANGES:	File, ch and cnt.
 ###############################################################*)
 PROCEDURE ExtractWord*( buff: ARRAY OF CHAR; VAR buffIdx: INTEGER; VAR word: ARRAY OF CHAR );
+CONST
+	Proc = "ExtractWord";
+
 VAR
     DBG:	BOOLEAN;
 
@@ -1684,7 +1757,7 @@ BEGIN
 
 
     IF DBG THEN
-        Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
 	END;
 
 	IF CharClass.IsWhiteSpace( buff[ buffIdx ]) THEN
@@ -1711,13 +1784,13 @@ BEGIN
 		word[ idx ] := 0X;
 		IF DBG THEN
 			Debug.Debug;
-			Debug.QString( "word", word );
+			Debug.LQString( "word", word );
 			Debug.Nl;
 		END;
 	END;
 
     IF DBG THEN
-        Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
     END;
 END ExtractWord;
 
@@ -1728,6 +1801,9 @@ END ExtractWord;
 # CHANGES:	str
 ###############################################################*)
 PROCEDURE TrimWhite*( VAR str: ARRAY OF CHAR );
+CONST
+	Proc = "LOWER";
+
 VAR
 	DBG		: BOOLEAN;
 
@@ -1738,20 +1814,20 @@ BEGIN
 	DBG := TRUE;
 	DBG := FALSE;
 	IF DBG THEN
-		Debug.Entry( This.File(), This.Func() );
+        Debug.Entry( File, Proc );
 	END;
 
 	idx := 0;
 	len := Strings.Length( str ) - 1;
 	IF DBG THEN
 		Debug.Debug;
-		Debug.QString( "str", str );
+		Debug.LQString( "str", str );
 		Debug.Nl;
 		Debug.Debug;
 		Debug.LInt( "len", len, 2 );
 		Debug.Nl;
 		Debug.Debug;
-		Debug.QChar( "char", str[len] );
+		Debug.LQChar( "char", str[len] );
 		Debug.Nl;
 	END;
 
@@ -1765,7 +1841,7 @@ BEGIN
 			Debug.LInt( "len", len, 2 );
 			Debug.Nl;
 			Debug.Debug;
-			Debug.QString( "str", str );
+			Debug.LQString( "str", str );
 			Debug.Nl;
 		END;
 		DEC( len );
@@ -1773,13 +1849,172 @@ BEGIN
 
 	IF DBG THEN
 		Debug.Debug;
-		Debug.QString( "str", str );
+		Debug.LQString( "str", str );
 		Debug.Nl;
 	END;
 	IF DBG THEN
-		Debug.Exit( This.File(), This.Func() );
+        Debug.Exit( File, Proc );
 	END;
 END TrimWhite;
+
+(*###############################################################
+# NAME:		OpenBinaryReader
+# FUNC:		Trim (delete) white space from end of str.
+# RETURNS:	Returns str.
+# CHANGES:	str
+###############################################################*)
+PROCEDURE OpenBinaryReader*( VAR name: ARRAY OF CHAR; VAR f: Files.File; VAR res: Files.Result );
+CONST
+	Proc = "LOWER";
+
+VAR
+	DBG		: BOOLEAN;
+
+	idx:	INTEGER;
+	len:	INTEGER;
+
+BEGIN
+	DBG := TRUE;
+	DBG := FALSE;
+	IF DBG THEN
+        Debug.Entry( File, Proc );
+	END;
+
+	IF DBG THEN
+		Debug.Debug;
+		Debug.LQString( "name", name );
+		Debug.Nl;
+	END;
+
+	IF ~Files.Exists( name ) THEN
+		Out.String( "ERROR:  File: " );
+		Out.String( name );
+		Out.String( " not found!" );
+		Out.Ln;
+		HALT( 1 );
+	END;
+
+	f := Files.Old( name, {Files.read}, res );
+
+	IF DBG THEN
+        Debug.Exit( File, Proc );
+	END;
+END OpenBinaryReader;
+
+
+(*###############################################################
+# NAME:       ShowBits
+# DATE:       20160916
+# AUTH:       Fitz - fitzer8@gmail.com
+# FUNC:       Prints to the screen the bits of a WORD (32 bits).
+# RETURNS:    N/A - Writes to screen.
+# CHANGES:    N/A - Rewrite.
+###############################################################*)
+PROCEDURE ShowBits*( Num: LONGINT );
+CONST
+	Proc = "ShowBits";
+
+VAR
+    DBG:    BOOLEAN;
+
+    num:    LONGINT;
+
+    idx:    INTEGER;
+
+BEGIN
+    DBG := TRUE;
+    DBG := FALSE;
+    IF DBG THEN
+        Debug.Entry( File, Proc );
+    END;
+
+    IF DBG THEN
+        Debug.Debug;
+        Debug.Parms;
+        Debug.Label( "Num" );
+        Debug.Hex( Num, 2 );
+        Debug.Nl;
+    END;
+
+	FOR idx := 32 TO 0 BY -1 DO
+		(* IF( Bits.TBit( idx, Num ) = 0 ) THEN *)
+		IF( TBit( idx, Num )) THEN
+			Out.Char( "0" );
+		ELSE
+			Out.Char( "1" );
+		END;
+	END;
+	Out.Ln;
+
+    IF DBG THEN
+        Debug.Exit( File, Proc );
+    END;
+END ShowBits;
+
+
+(*###############################################################
+# NAME:       FileNotOpen
+# DATE:       20160918
+# AUTH:       Fitz - fitzer8@gmail.com
+# FUNC:       Prints to the screen FileNotOpen message.
+# RETURNS:    N/A - Writes to screen.
+# CHANGES:    N/A - Rewrite.
+###############################################################*)
+PROCEDURE FileNotOpen*( file: ARRAY OF CHAR );
+CONST
+	Proc = "FileNotOpen";
+
+VAR
+    DBG:    BOOLEAN;
+
+BEGIN
+    DBG := TRUE;
+    DBG := FALSE;
+    IF DBG THEN
+        Debug.Entry( File, Proc );
+    END;
+
+
+	Debug.LQString( "ERROR:  Can't open file", file );
+	Out.Ln;
+
+    IF DBG THEN
+        Debug.Exit( File, Proc );
+    END;
+END FileNotOpen;
+
+
+(*###############################################################
+# NAME:       FileNotFound
+# DATE:       20160918
+# AUTH:       Fitz - fitzer8@gmail.com
+# FUNC:       Prints to the screen FileNotFound message.
+# RETURNS:    N/A - Writes to screen.
+# CHANGES:    N/A - Rewrite.
+###############################################################*)
+PROCEDURE FileNotFound*( file: ARRAY OF CHAR );
+CONST
+	Proc = "FileNotFound";
+
+VAR
+    DBG:    BOOLEAN;
+
+BEGIN
+    DBG := TRUE;
+    DBG := FALSE;
+    IF DBG THEN
+        Debug.Entry( File, Proc );
+    END;
+
+
+	Debug.LQString( "ERROR:  Can't find file", file );
+	Out.Ln;
+
+    IF DBG THEN
+        Debug.Exit( File, Proc );
+    END;
+END FileNotFound;
+
 
 BEGIN
 END Utils.
