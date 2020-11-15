@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<package name="Utils">
+  <version current="0" revision="0" age="0"/>
+
+  <library name="oo2c_utils" main-module="Utils">
+    <version current="0" revision="0" age="0"/>
+  </library>
+
+  <executable main-module="Utils"/>
+</package>
